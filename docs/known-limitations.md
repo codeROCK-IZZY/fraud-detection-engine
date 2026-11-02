@@ -13,7 +13,7 @@ Honest list of what this project does not do, or does only partly.
 - **UTC time of day.** Customer time zones are not modelled; "time of day" features are relative to each card's own history, which limits the damage.
 
 ## Engineering
-- **Rate limiting and model cache are per process.** With several API replicas each enforces its own login limit (same as Projects 1–2).
+- **Rate limiting and model cache are per process.** With several API replicas each enforces its own login limit (same as the AI Predictive Maintenance and Intelligent Document AI platforms).
 - **Merchant fraud-rate lookups** count rows per scored transaction. Fine at demo scale; at high volume a per-merchant counter table would be needed.
 - **Backfill explanations**: transactions scored in bulk get reason sentences only when medium or above.
 - **Kafka is not secured locally** (plaintext on the Docker network). On AWS it would need TLS + IAM (MSK), which is not provisioned.

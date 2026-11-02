@@ -1,6 +1,6 @@
 # Financial Fraud Detection Engine — Design Document (v1.0)
 
-Status: **Approved by the owner on 2026-11-01 (all §9 recommendations accepted) and implemented.** §10 lists where the implementation differs from this design, and why.
+Status: **Implemented.** §10 lists where the implementation differs from this design, and why.
 
 Contents
 1. Product requirements
@@ -11,10 +11,10 @@ Contents
 6. Machine-learning strategy
 7. Security, privacy and responsible-use design
 8. Implementation roadmap
-9. Decisions (approved)
+9. Key design decisions
 10. Changes made during implementation
 
-Reused from earlier projects (already built and tested): auth module (argon2 + JWT + rotating refresh tokens), PostgreSQL job queue, structured logging and RFC 9457 errors, CI workflow with gitleaks, Vite + React frontend scaffold, Terraform skeleton for ECS + RDS. Lessons from Project 1 are applied up front (§6.9).
+Reused from earlier, already-tested platforms: auth module (argon2 + JWT + rotating refresh tokens), PostgreSQL job queue, structured logging and RFC 9457 errors, CI workflow with gitleaks, Vite + React frontend scaffold, Terraform skeleton for ECS + RDS. Lessons from the AI Predictive Maintenance platform are applied up front (§6.9).
 
 ---
 
@@ -75,7 +75,7 @@ Real customer or banking data (never). Real card numbers (rejected by validation
 ## 2. Architecture
 
 ### 2.1 Decision: modular monolith, three processes from one image
-Same pattern as Projects 1 and 2, plus a Kafka consumer:
+Same pattern as the AI Predictive Maintenance and Intelligent Document AI platforms, plus a Kafka consumer:
 
 | Process | Does |
 |---|---|
@@ -88,10 +88,10 @@ All three call the **same** `scoring` service. There is one code path for scorin
 | Option | Pros | Cons |
 |---|---|---|
 | **Monolith + worker + stream consumer (recommended)** | One codebase, one scoring path, easy to debug; the consumer scales independently by adding instances (Kafka partitions) | Discipline needed on module boundaries |
-| Microservices (ingest / features / scoring / cases) | Independent deploys | Network hops on the latency-critical path, distributed transactions between scoring and case creation. Project 9 is where distributed serving is showcased |
+| Microservices (ingest / features / scoring / cases) | Independent deploys | Network hops on the latency-critical path, distributed transactions between scoring and case creation. distributed serving belong in a dedicated inference platform |
 
 ### 2.2 Decision: Kafka for streaming, PostgreSQL queue for jobs
-Kafka carries the **transaction stream**, which is high-volume, ordered per card, and replayable. Background **jobs** (training, CSV import, reports) stay in the PostgreSQL queue from Project 1: they are low-volume, need status in the UI, and should be transactional with the data they touch. Using Kafka for jobs, or Postgres for the stream, would each be the wrong tool.
+Kafka carries the **transaction stream**, which is high-volume, ordered per card, and replayable. Background **jobs** (training, CSV import, reports) stay in the PostgreSQL queue from the AI Predictive Maintenance platform: they are low-volume, need status in the UI, and should be transactional with the data they touch. Using Kafka for jobs, or Postgres for the stream, would each be the wrong tool.
 
 ### 2.3 Component diagram
 ```mermaid
@@ -127,10 +127,10 @@ flowchart LR
 ### 2.4 Backend module layout
 ```
 backend/app/
-  core/            config, logging, security, errors           (from Project 1)
+  core/            config, logging, security, errors           (shared core)
   db/              SQLAlchemy models, session, Alembic
   modules/
-    auth/ users/   login, refresh, roles, API keys              (from Project 1, + API keys)
+    auth/ users/   login, refresh, roles, API keys              (shared core, + API keys)
     reference/     customers, cards, merchants, devices
     ingestion/     validation, REST single/batch, CSV import
     features/      point-in-time feature computation — shared by training and scoring
@@ -142,9 +142,9 @@ backend/app/
     labels/        chargebacks, analyst dispositions, label maturation
     monitoring/    drift (PSI), matured-label performance, latency metrics
     analytics/     dashboards and reports
-    jobs/          queue adapter, worker loop                    (from Project 1)
+    jobs/          queue adapter, worker loop                    (shared core)
 ml/                synthetic data generator, experiments, evaluation reports
-frontend/          Vite + React + TS + TanStack Query + Recharts + Tailwind  (from Projects 1–2)
+frontend/          Vite + React + TS + TanStack Query + Recharts + Tailwind  (shared frontend scaffold)
 ```
 
 ### 2.5 Scoring flow (REST, synchronous)
@@ -166,10 +166,10 @@ sequenceDiagram
 ### 2.6 Key library choices
 | Concern | Choice | Why |
 |---|---|---|
-| Web / ORM / validation | FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2 | Same as Projects 1–2 |
+| Web / ORM / validation | FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2 | Same as the AI Predictive Maintenance and Intelligent Document AI platforms |
 | Kafka client | `confluent-kafka` (librdkafka) | Mature, fast, transactional/idempotent producer, wheels for Linux and Windows |
 | Kafka broker (local) | Apache Kafka 3.x in KRaft mode, single node | No ZooKeeper; matches what MSK runs |
-| ML | scikit-learn, `xgboost-cpu`, SHAP (verification in tests) | Lessons from Project 1 |
+| ML | scikit-learn, `xgboost-cpu`, SHAP (verification in tests) | Lessons from the AI Predictive Maintenance platform |
 | Anomaly (A2) | Isolation Forest; PyTorch autoencoder as a compared alternative | See decision 6 in §9 |
 | Tests | pytest + testcontainers (Postgres **and** Kafka), Vitest, Playwright, Locust | Real broker in integration tests |
 
@@ -223,7 +223,7 @@ erDiagram
 ### 4.2 Tables (abridged; full DDL in Alembic migrations)
 | Table | Key columns | Notes |
 |---|---|---|
-| `users`, `refresh_tokens` | as Project 1; role ENUM(admin, lead_analyst, analyst, auditor) | |
+| `users`, `refresh_tokens` | as in the AI Predictive Maintenance platform; role ENUM(admin, lead_analyst, analyst, auditor) | |
 | `api_keys` | id, name, key_hash, scopes[], created_by, last_used_at, revoked_at | Only the hash is stored; shown once on creation |
 | `customers` | id, external_ref (`CUST-000123`), home_country, home_lat, home_lon, created_at | **Pseudonymous**: no names, birth dates, gender, ethnicity or address lines |
 | `cards` | id, customer_id, token UNIQUE, last4, network, issued_at, status | `token` is never a PAN (validated) |
@@ -237,10 +237,10 @@ erDiagram
 | `case_notes` | id, case_id, author_id, body, created_at | Append-only (no UPDATE/DELETE grants for the app role) |
 | `case_events` | id, case_id, actor_id, event, from_status, to_status, details JSONB, ts | Full workflow history |
 | `rules`, `rule_set_versions` | id, code, description, expression params JSONB, enabled; version, activated_at | Rules are data, versioned, not code edits |
-| `model_versions` | as Project 1, plus `threshold_config` JSONB, `reference_distribution` JSONB | Reference distribution feeds drift detection |
+| `model_versions` | as in the AI Predictive Maintenance platform, plus `threshold_config` JSONB, `reference_distribution` JSONB | Reference distribution feeds drift detection |
 | `risk_settings` | band thresholds, analyst daily capacity | Admin-configurable |
 | `drift_reports` | id, window_start, window_end, model_version_id, feature_psi JSONB, score_psi, status, created_at | |
-| `ingestion_batches`, `jobs`, `audit_log` | as Project 1; `audit_log` also records **reads** of case and transaction detail | Who looked at what is part of a fraud audit trail |
+| `ingestion_batches`, `jobs`, `audit_log` | as in the AI Predictive Maintenance platform; `audit_log` also records **reads** of case and transaction detail | Who looked at what is part of a fraud audit trail |
 
 ### 4.3 Data volume (demo)
 ~5,000 cards, ~600 merchants, 12 months, ~2 million transactions, fraud rate ~0.3–0.8% (realistic imbalance). About 1–2 GB with indexes.
@@ -253,7 +253,7 @@ All under `/api/v1`, JSON, RFC 9457 errors, cursor pagination.
 
 | Method & path | Who | Purpose |
 |---|---|---|
-| `POST /auth/login` · `/auth/refresh` · `/auth/logout` · `GET /auth/me` | public / auth | as Project 1 |
+| `POST /auth/login` · `/auth/refresh` · `/auth/logout` · `GET /auth/me` | public / auth | as in the AI Predictive Maintenance platform |
 | `GET/POST /users`, `PATCH /users/{id}` | admin | |
 | `GET/POST /api-keys`, `DELETE /api-keys/{id}` | admin | key shown once |
 | `POST /transactions` | API key `transactions:write` | ingest + score synchronously → 201 with score |
@@ -376,11 +376,11 @@ Stated in the README: results on synthetic data measure how learnable our simula
 - **Feedback:** analyst dispositions become labels (`source = analyst`) and are used in the next training run. Known bias, documented: only reviewed transactions get analyst labels, so the model can't learn from what it never flagged. Mitigation: a small random sample of low-band transactions is sent for review (configurable, default 0.1%).
 - The month-11 drift scenario should trigger the drift alert in the demo, which is the end-to-end test of this feature.
 
-### 6.9 Explainability, and lessons from Project 1
-- SHAP via XGBoost `pred_contribs` / exact linear SHAP for LR, verified against the `shap` library in tests (Project 1 approach).
+### 6.9 Explainability, and lessons from the AI Predictive Maintenance platform
+- SHAP via XGBoost `pred_contribs` / exact linear SHAP for LR, verified against the `shap` library in tests (the approach used in the AI Predictive Maintenance platform).
 - **Grouped by signal family** (velocity, amount, device, location, …) so correlated features don't produce contradictory explanations.
 - Sentence templates turn the top groups into analyst-readable text with the actual values.
-- Watch for spurious features (Project 1's "ambient temperature"): the evaluation report includes global importance, and any feature that tracks calendar time rather than behaviour is removed.
+- Watch for spurious features ("ambient temperature" in the AI Predictive Maintenance platform): the evaluation report includes global importance, and any feature that tracks calendar time rather than behaviour is removed.
 
 ### 6.10 Anomaly score (A2)
 An unsupervised model trained on legitimate-looking history gives an `anomaly_score` that can surface new fraud patterns before labels exist. It is shown as a separate indicator, not merged into the risk score, and its value is measured on the month-11 drift scenario.
@@ -390,7 +390,7 @@ An unsupervised model trained on legitimate-looking history gives an `anomaly_sc
 ## 7. Security, privacy and responsible-use design
 
 ### 7.1 Authentication and authorisation
-- Project 1 auth (argon2id, 15-min JWT, rotating httpOnly refresh cookie, login rate limit, lockout).
+- Auth from the AI Predictive Maintenance platform (argon2id, 15-min JWT, rotating httpOnly refresh cookie, login rate limit, lockout).
 - Scoped, hashed API keys for machine clients; revocable; `last_used_at` tracked.
 - Object-level checks: analysts can modify only cases assigned to them; leads can modify any; auditors read only. Tested with a role × endpoint × ownership matrix.
 
@@ -415,7 +415,7 @@ Plaintext on the local Docker network only. On AWS: TLS + IAM auth (MSK). Consum
 
 ## 8. Implementation roadmap
 
-Each milestone ends with tests run (output shown), docs updated, and a short walkthrough.
+Each milestone ends with passing tests and updated documentation.
 
 | # | Milestone | Deliverables |
 |---|---|---|
@@ -435,7 +435,7 @@ Each milestone ends with tests run (output shown), docs updated, and a short wal
 
 ---
 
-## 9. Decisions (approved 2026-11-01: the recommended option in each case)
+## 9. Key design decisions
 
 1. **Architecture:** modular monolith, deployed as `api` + `worker` + `stream-scorer` from one image (§2.1).
 2. **Kafka for the transaction stream, PostgreSQL queue for jobs** (§2.2). Kafka runs locally in KRaft mode; app also runs with streaming disabled.
@@ -447,7 +447,7 @@ Each milestone ends with tests run (output shown), docs updated, and a short wal
 8. **One open case per card** (not per transaction or per customer) (§4.2).
 9. **USD only** in MVP.
 10. **AWS streaming cost:** MSK Serverless costs roughly $540/month if left running, before traffic. For the AWS stage I'll propose either short-lived demo runs or swapping in Amazon Kinesis/SQS behind the same `streaming` interface. Decided at M12, nothing now.
-11. **Frontend:** same Vite + React + TypeScript stack as Projects 1–2.
+11. **Frontend:** same Vite + React + TypeScript stack as the AI Predictive Maintenance and Intelligent Document AI platforms.
 
 ---
 
@@ -455,7 +455,7 @@ Each milestone ends with tests run (output shown), docs updated, and a short wal
 
 | Area | Original design | What was built | Why |
 |---|---|---|---|
-| Transactions table | Range-partitioned by month | Plain table with indexes on (card, time), (merchant, time), time and band | Scores, labels and cases need foreign keys to transactions; PostgreSQL requires the partition key in every referencing key. Partitioning is already demonstrated in Project 1 |
+| Transactions table | Range-partitioned by month | Plain table with indexes on (card, time), (merchant, time), time and band | Scores, labels and cases need foreign keys to transactions; PostgreSQL requires the partition key in every referencing key. Partitioning is already demonstrated in the AI Predictive Maintenance platform |
 | Calibration | Isotonic or Platt, chosen on validation | **Platt (sigmoid)** | With a few hundred frauds in the calibration window, isotonic regression produced a staircase with large ties, which made band thresholds coarse |
 | Splits | Months 1–8 train / 9 calibrate / 10–12 test | Deployment date D: train < D−60 days, calibrate D−60…D−30, gap D−30…D, test ≥ D | The 30-day gap keeps immature labels (fraud not yet reported) out of calibration. The same function trains the production model with D = latest data |
 | Training sample | All rows | All frauds + 25% of legitimate rows (weighted ×4) | Keeps training fast; probabilities are re-calibrated on untouched data afterwards |
@@ -465,5 +465,5 @@ Each milestone ends with tests run (output shown), docs updated, and a short wal
 | History features | "Seen before" | "Seen in the last 90 days" | Every history feature has a fixed 90-day memory, so live scoring can load just 90 days and still match training exactly (tested) |
 | PyTorch autoencoder (decision 6) | Optional comparison | Not built; Isolation Forest only | Isolation Forest is evaluated in the report; adding a ~200 MB dependency for a comparison was not worth it. Listed in known limitations |
 | Streaming on AWS (decision 10) | Decide at M12 | Terraform does not provision MSK; streaming is disabled on AWS | Idle MSK costs ~$540/month. REST and CSV work on AWS; Kafka runs locally |
-| Device age feature | Days since the device was first seen | Capped at 90 days | The first evaluation showed `device_age_days` with PSI ≈ 1.2 from the first test month: it grew with calendar time, a spurious trend (like Project 1's ambient temperature). Capping matches the 90-day memory of every other feature |
-| Gitleaks in CI | `gitleaks-action` | gitleaks CLI over full history | The action fails on a repository's first push (root commit has no parent); same fix as Project 1 |
+| Device age feature | Days since the device was first seen | Capped at 90 days | The first evaluation showed `device_age_days` with PSI ≈ 1.2 from the first test month: it grew with calendar time, a spurious trend (like the AI Predictive Maintenance platform's ambient temperature). Capping matches the 90-day memory of every other feature |
+| Gitleaks in CI | `gitleaks-action` | gitleaks CLI over full history | The action fails on a repository's first push (root commit has no parent); same fix as in the AI Predictive Maintenance platform |

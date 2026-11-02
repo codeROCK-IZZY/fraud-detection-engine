@@ -1,6 +1,6 @@
 # Financial Fraud Detection Engine
 
-Portfolio project 3 of 11. Scores financial transactions for fraud risk in real time (REST API and a
+Scores financial transactions for fraud risk in real time (REST API and a
 Kafka stream), explains every score in plain language, and routes the riskiest activity to human
 analysts through a case-management console. Analyst decisions become training labels for the next model.
 
@@ -98,4 +98,3 @@ curl -X POST http://localhost:8000/api/v1/transactions -H "X-API-Key: $KEY" -H "
 | [docs/AWS_DEPLOYMENT.md](docs/AWS_DEPLOYMENT.md) | Terraform, cost estimate, deploy and teardown (nothing deployed) |
 | [docs/known-limitations.md](docs/known-limitations.md) | What this does not do |
 
-Engineering standards: [CLAUDE.md](CLAUDE.md).

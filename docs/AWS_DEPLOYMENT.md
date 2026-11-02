@@ -44,7 +44,7 @@ These are approximate list prices; confirm with the [AWS Pricing Calculator](htt
 | Secrets Manager, S3, ECR | 3 secrets, < 5 GB | 2–4 |
 | **Total** | | **≈ $145–165 / month** |
 
-Ways to cut cost for a portfolio demo:
+Ways to cut cost for a demo environment:
 - **Scale to zero when idle:** `aws ecs update-service --desired-count 0` for all three services, plus `aws rds stop-db-instance` (RDS restarts automatically after 7 days). This saves the Fargate cost (~$70) and most of the RDS cost. The NAT gateway and ALB keep billing while they exist.
 - **Short-lived demo:** `terraform apply`, record the demo, then `terraform destroy` the same day. That costs a few dollars.
 - **Production hardening** (Multi-AZ RDS, 2 NAT gateways) adds roughly $50–60 per month.
@@ -85,7 +85,7 @@ Prerequisites: AWS CLI v2 logged in as an administrator (SSO recommended), Terra
    ```bash
    terraform plan -var image_tag=$TAG -out=full.plan
    ```
-5. With the owner's approval:
+5. After approval:
    ```bash
    terraform apply full.plan
    ```
@@ -126,4 +126,4 @@ deployed. Options if streaming is needed later:
    `FDE_KAFKA_BOOTSTRAP` set (plus IAM auth), demo, then destroy it the same day (~$20/day).
 2. Replace Kafka with Amazon Kinesis or SQS behind the same `app/streaming` interface (pay per use).
 
-Nothing is deployed without the owner's explicit approval.
+Nothing is deployed without explicit approval.
