@@ -1,0 +1,46 @@
+[project]
+name = "fde-backend"
+version = "0.1.0"
+description = "Financial Fraud Detection Engine — API, worker, stream scorer and ML pipeline"
+requires-python = ">=3.12"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = [".venv", "migrations/script.py.mako"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "S", "SIM", "RUF"]
+ignore = [
+  "B008",   # FastAPI Depends()/Cookie() in defaults is idiomatic
+  "S101",   # assert is fine in tests and for internal invariants
+  "S608",   # SQL built only from generated identifiers (partition names), documented in place
+  "RUF001", "RUF002", "RUF003",  # unicode (°C, σ, –) in strings/comments is intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S105", "S106", "S311"]
+"app/ml/synthetic.py" = ["S311"]
+"app/streaming/simulate.py" = ["S311"]
+"app/ml/backfill.py" = ["S311"]  # review sampling, not security
+"app/ml/report.py" = ["E501"]  # Markdown table templates
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+exclude = ["migrations/"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning", "ignore::FutureWarning"]
+markers = ["slow: trains models on a full synthetic dataset", "kafka: needs a Kafka broker (FDE_TEST_KAFKA_BOOTSTRAP)"]

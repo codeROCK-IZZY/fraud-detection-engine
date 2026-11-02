@@ -1,0 +1,20 @@
+# Runtime dependencies (pinned). Install: pip install -r requirements.txt
+confluent-kafka==2.16.1
+alembic==1.20.1
+argon2-cffi==25.1.0
+boto3==1.43.123
+email-validator==2.3.0
+fastapi==0.162.0
+joblib==1.6.0
+numpy==2.5.4
+pandas==3.1.0
+psycopg[binary]==3.3.6
+pydantic==2.14.2
+pydantic-settings==2.16.2
+PyJWT==2.15.1
+python-multipart==0.0.33
+scikit-learn==1.9.1
+SQLAlchemy==2.1.6
+uvicorn[standard]==0.54.0
+# CPU-only build of XGBoost (same `import xgboost`); avoids ~1 GB of unused NVIDIA libraries.
+xgboost-cpu==3.4.1
