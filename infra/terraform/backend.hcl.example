@@ -1,0 +1,7 @@
+# Remote state in S3 with native S3 state locking (Terraform >= 1.10 supports use_lockfile;
+# on 1.9 use dynamodb_table instead). Create the bucket once, with versioning + encryption.
+bucket       = "CHANGE_ME-tfstate-bucket"
+key          = "predictive-maintenance/prod/terraform.tfstate"
+region       = "us-east-1"
+encrypt      = true
+# dynamodb_table = "CHANGE_ME-tf-locks"

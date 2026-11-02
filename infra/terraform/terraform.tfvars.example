@@ -1,0 +1,6 @@
+region             = "us-east-1"
+environment        = "prod"
+alarm_email        = "you@example.com"
+monthly_budget_usd = 150
+# certificate_arn  = "arn:aws:acm:us-east-1:<account-id>:certificate/<id>"
+# github_repository = "codeROCK-IZZY/ai-predictive-maintenance"
