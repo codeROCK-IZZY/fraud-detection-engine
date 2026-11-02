@@ -8,6 +8,23 @@ analysts through a case-management console. Analyst decisions become training la
 > *transactions*, not people, and is **advisory only**: it returns `allow` or `review` and never declines
 > a payment or blocks an account.
 
+## The problem
+
+Card and account fraud costs banks, payment companies and merchants enormous sums, and fraudsters change
+tactics constantly. Rule-only systems ("block anything over $5,000") miss new patterns and bury analysts in
+false alarms, while many machine-learning models are black boxes that analysts cannot question, and are
+often tested in ways that overstate how well they really work.
+
+## What this engine does
+
+- Scores every transaction in real time as it happens, through a REST API or a Kafka stream.
+- Explains each score in plain language ("6 purchases on this card in the last 10 minutes; usual is under 1") and shows which reasons came from the model and which from fixed rules.
+- Sends only as many alerts as the analyst team can actually review each day, grouped into one case per card.
+- Gives analysts an investigation console; their decisions become training data, and drift monitoring warns when fraud patterns change.
+- Is advisory by design: it flags transactions for human review and never blocks a customer automatically.
+
+**Who it is for:** fraud-operations teams at banks, fintechs and payment providers.
+
 **Stack:** Python 3.13 · FastAPI · PostgreSQL 16 · Apache Kafka (KRaft) · scikit-learn · XGBoost · SHAP ·
 React + TypeScript · Docker Compose · Terraform (AWS, not applied) · GitHub Actions
 
