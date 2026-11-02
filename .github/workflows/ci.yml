@@ -25,7 +25,7 @@ jobs:
           POSTGRES_DB: fde_test
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U fde" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U fde -d fde_test" --health-interval 5s --health-timeout 5s --health-retries 10
       kafka:
         image: apache/kafka:3.9.1
         env:
