@@ -173,13 +173,16 @@ def test_transaction_search_and_audited_detail(trained_world):
     items = page.json()["items"]
     assert items and all(i["risk_band"] in ("high", "critical") for i in items)
     tid = items[0]["id"]
+
+    def views() -> int:
+        with new_session() as s:
+            q = select(func.count()).where(AuditLog.action == "transaction.view", AuditLog.entity_id == str(tid))
+            return s.scalar(q) or 0
+
+    before = views()  # earlier tests in this module may already have opened this transaction
     detail = w.client.get(f"/api/v1/transactions/{tid}", headers=analyst).json()
     assert detail["score"]["model"]["version"] == w.model_version
-    with new_session() as s:
-        logged = s.scalar(
-            select(func.count()).where(AuditLog.action == "transaction.view", AuditLog.entity_id == str(tid))
-        )
-    assert logged == 1
+    assert views() == before + 1
     # Auditors may search but not open case/transaction detail (they review the audit trail instead).
     assert w.client.get(f"/api/v1/transactions/{tid}", headers=w.auth("auditor")).status_code == 403
 
