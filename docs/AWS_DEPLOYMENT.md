@@ -126,4 +126,4 @@ deployed. Options if streaming is needed later:
    `FDE_KAFKA_BOOTSTRAP` set (plus IAM auth), demo, then destroy it the same day (~$20/day).
 2. Replace Kafka with Amazon Kinesis or SQS behind the same `app/streaming` interface (pay per use).
 
-Nothing is deployed without explicit approval.
+Neither option is deployed by this repository.
