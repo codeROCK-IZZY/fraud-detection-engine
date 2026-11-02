@@ -1,6 +1,6 @@
 # AWS deployment
 
-> **Status: designed, not deployed.** Nothing in this repository creates AWS resources automatically. The Terraform has **not** been applied, and was not validated locally (CI runs `fmt` and `validate`). Deploying requires the owner's explicit approval, a reviewed `terraform plan`, and the budget alert below.
+> **Status: designed, not deployed.** Nothing in this repository creates AWS resources automatically. The Terraform has **not** been applied, and was not validated locally (CI runs `fmt` and `validate`). Deploying requires a reviewed `terraform plan` and the budget alert below.
 
 ## Architecture
 
@@ -85,7 +85,7 @@ Prerequisites: AWS CLI v2 logged in as an administrator (SSO recommended), Terra
    ```bash
    terraform plan -var image_tag=$TAG -out=full.plan
    ```
-5. After approval:
+5. After reviewing the plan:
    ```bash
    terraform apply full.plan
    ```
