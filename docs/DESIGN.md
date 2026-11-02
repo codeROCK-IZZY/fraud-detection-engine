@@ -1,6 +1,6 @@
 # Financial Fraud Detection Engine — Design Document (v1.0)
 
-Status: **Draft for owner review.** No application code is written until §9 is approved.
+Status: **Approved by the owner on 2026-11-01 (all §9 recommendations accepted) and implemented.** §10 lists where the implementation differs from this design, and why.
 
 Contents
 1. Product requirements
@@ -11,7 +11,8 @@ Contents
 6. Machine-learning strategy
 7. Security, privacy and responsible-use design
 8. Implementation roadmap
-9. Decisions that need your approval
+9. Decisions (approved)
+10. Changes made during implementation
 
 Reused from earlier projects (already built and tested): auth module (argon2 + JWT + rotating refresh tokens), PostgreSQL job queue, structured logging and RFC 9457 errors, CI workflow with gitleaks, Vite + React frontend scaffold, Terraform skeleton for ECS + RDS. Lessons from Project 1 are applied up front (§6.9).
 
@@ -434,7 +435,7 @@ Each milestone ends with tests run (output shown), docs updated, and a short wal
 
 ---
 
-## 9. Decisions that need your approval
+## 9. Decisions (approved 2026-11-01: the recommended option in each case)
 
 1. **Architecture:** modular monolith, deployed as `api` + `worker` + `stream-scorer` from one image (§2.1).
 2. **Kafka for the transaction stream, PostgreSQL queue for jobs** (§2.2). Kafka runs locally in KRaft mode; app also runs with streaming disabled.
@@ -447,3 +448,22 @@ Each milestone ends with tests run (output shown), docs updated, and a short wal
 9. **USD only** in MVP.
 10. **AWS streaming cost:** MSK Serverless costs roughly $540/month if left running, before traffic. For the AWS stage I'll propose either short-lived demo runs or swapping in Amazon Kinesis/SQS behind the same `streaming` interface. Decided at M12, nothing now.
 11. **Frontend:** same Vite + React + TypeScript stack as Projects 1–2.
+
+---
+
+## 10. Changes made during implementation
+
+| Area | Original design | What was built | Why |
+|---|---|---|---|
+| Transactions table | Range-partitioned by month | Plain table with indexes on (card, time), (merchant, time), time and band | Scores, labels and cases need foreign keys to transactions; PostgreSQL requires the partition key in every referencing key. Partitioning is already demonstrated in Project 1 |
+| Calibration | Isotonic or Platt, chosen on validation | **Platt (sigmoid)** | With a few hundred frauds in the calibration window, isotonic regression produced a staircase with large ties, which made band thresholds coarse |
+| Splits | Months 1–8 train / 9 calibrate / 10–12 test | Deployment date D: train < D−60 days, calibrate D−60…D−30, gap D−30…D, test ≥ D | The 30-day gap keeps immature labels (fraud not yet reported) out of calibration. The same function trains the production model with D = latest data |
+| Training sample | All rows | All frauds + 25% of legitimate rows (weighted ×4) | Keeps training fast; probabilities are re-calibrated on untouched data afterwards |
+| Account takeover signal | Days since credential change | New device + new payee + IP mismatch | The ingestion schema has no account-event feed; documented in known limitations |
+| Device/payee identifiers | Hashed | **Keyed** hash (HMAC-SHA256, `FDE_PSEUDONYM_SECRET`) | A plain SHA-256 of an account number can be reversed by guessing |
+| Stored features | On every score | On medium-and-above scores | ~1 KB per score; low scores are reproducible by recomputation |
+| History features | "Seen before" | "Seen in the last 90 days" | Every history feature has a fixed 90-day memory, so live scoring can load just 90 days and still match training exactly (tested) |
+| PyTorch autoencoder (decision 6) | Optional comparison | Not built; Isolation Forest only | Isolation Forest is evaluated in the report; adding a ~200 MB dependency for a comparison was not worth it. Listed in known limitations |
+| Streaming on AWS (decision 10) | Decide at M12 | Terraform does not provision MSK; streaming is disabled on AWS | Idle MSK costs ~$540/month. REST and CSV work on AWS; Kafka runs locally |
+| Device age feature | Days since the device was first seen | Capped at 90 days | The first evaluation showed `device_age_days` with PSI ≈ 1.2 from the first test month: it grew with calendar time, a spurious trend (like Project 1's ambient temperature). Capping matches the 90-day memory of every other feature |
+| Gitleaks in CI | `gitleaks-action` | gitleaks CLI over full history | The action fails on a repository's first push (root commit has no parent); same fix as Project 1 |
